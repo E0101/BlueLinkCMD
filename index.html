@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="BL_main.css">
+    <title>Blue Link Command Center</title>
+  
+  <!--CSS STYLE TAGS HERE-->
+<style>
+html {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+}
+body {
+    background-image: linear-gradient(to right top, #d16ba5, #c777b9, #ba83ca, #aa8fd8, #9a9ae1, #8aa7ec, #79b3f4, #69bff8, #52cffe, #41dfff, #46eefa, #5ffbf1);
+    margin:0;
+}
+
+
+h1 {
+    color:whitesmoke;
+    font-family:Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
+    text-align: center;
+}
+
+
+.button{
+    cursor: pointer;
+    width: auto;
+    height: 30px;
+    text-align: center;
+    margin: auto;
+    font-size:larger;
+    display: flexbox;
+}
+
+
+#batteryBar{
+    margin: auto;
+    width: 60%;
+    border: 3px solid #73AD21;
+    padding: 10px;
+    background-color: rgb(112, 75, 47);
+    margin-top: 100px;
+}
+
+#batteryIndicator{
+    width: 50%;
+    height: 50px;
+    background-color: aquamarine;
+}
+
+.button:hover {
+    background-color: grey;
+}
+
+.terminal {
+    width: calc(100% - 100px); /* 100 pixels on both sides */
+    max-width: 400px; /* Set a maximum width */
+    height: 300px;
+    background-color: #1a1a1a;
+    color: #00ff00;
+    font-family: 'Courier New', Courier, monospace;
+    padding: 10px;
+    overflow-y: scroll;
+    border: 2px solid #00ff00;
+    border-radius: 5px;
+    margin: -20px auto 0; /* Center the terminal horizontally, 10px margin-top */
+  }
+
+  .clear-button-container {
+    text-align: center;
+    margin-top: 10px;
+    }
+
+  .clear-button {
+    display: block;
+    margin: 0 auto;
+    padding: 5px;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+
+
+  #connectButton{
+    text-align: center;
+    display: block;
+    margin: 10px auto 0;
+    padding: 5px;
+    border: none;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+
+  #writeButton{
+    transform: translateY(1450%);    
+    text-align: center;
+    display: block;
+    margin: 10px auto 0;
+    padding: 5px;
+    border: none;
+    cursor: pointer;
+    border-radius: 3px;
+  }
+
+
+
+</style>
+
+  <!-- END CSS STYLING--->
+  
+</head>
+
+  <body id="main">
+
+    <header>
+      <h1 id="header"><b>Blue Link Command Center</b></h1>
+      <hr>
+    </header>
+<!---CREATE BUTTONS-->
+    <button class="clear-button" onclick="clearTerminal()">Clear Terminal</button>
+    
+    <button id="connectButton">Connect to BLE Device</button>
+    <button id="writeButton" disabled>Activate Dropper</button>
+    
+
+    <!---TERMINAL LINE HERE-->
+    <div class="terminal" id="terminalOutput">
+        <p>$ \Command Line Output:</p>
+        
+    </div>
+    
+
+  <!---js SCRIPT HERE-->
+ 
+  <script>
+
+    //JS HERE------------------------------------------------------------------------------
+    #enable-experimental-web-platform-features
+    
+    document.addEventListener('DOMContentLoaded', () => {
+      const serviceUuid = '0000dfb0-0000-1000-8000-00805f9b34fb';
+      const characteristicUuid = 0xDFB1; // Replace with the actual characteristic UUID
+    
+      let bluetoothDevice;
+      let characteristic;
+      const connectButton = document.getElementById('connectButton');
+      
+      
+      //-------------------------------------
+      
+    // define a sleep function so we don't send the 0 to the MCB too soon:
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    
+      //--------------------
+      
+      //define connection cosmetics
+      function updateButtonStatus(connected) {  
+    
+        if (connected) {
+          connectButton.style.backgroundColor = 'rgb(218,23,31)';
+          connectButton.style.color = 'white';
+          connectButton.textContent = 'Disconnect';
+    
+    
+        } else {
+          connectButton.style.backgroundColor = 'rgb(16,195,14)';
+          connectButton.textContent = 'Connect';
+          connectButton.style.color = 'white';
+        }
+      }
+    
+      //on load show disconnected 
+      updateButtonStatus(false);
+    
+    
+      document.getElementById('connectButton').addEventListener('click', async () => {
+        try {
+          if (bluetoothDevice && bluetoothDevice.gatt.connected) {
+            // Disconnect the device
+            await bluetoothDevice.gatt.disconnect();
+            bluetoothDevice = null;
+            characteristic = null;
+            console.log("MCB Disconnected");
+            updateButtonStatus(false);
+            document.getElementById('writeButton').setAttribute('disabled','disabled');
+    
+            //CONNECTION SCRIPT IF DEVICE IS DISCONNECTED 
+          } else {
+            // Request Bluetooth device
+            bluetoothDevice = await navigator.bluetooth.requestDevice({
+              filters: [{
+                services: [serviceUuid],
+              }],
+            });
+    
+            // Connect to the selected device
+            const server = await bluetoothDevice.gatt.connect();
+    
+            // Get the primary service
+            const service = await server.getPrimaryService(serviceUuid);
+    
+            // Get the characteristic
+            characteristic = await service.getCharacteristic(characteristicUuid);
+    
+            // Update button status for connection
+            updateButtonStatus(true);
+    
+            // Enable the Write button
+            document.getElementById('writeButton').removeAttribute('disabled');
+    
+            console.log('Connected to MCB successfully!');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          console.log(`Error: ${error}`);
+          updateButtonStatus(false); // Update button status on error or disconnection
+        }
+      });
+    
+    //----------------- SEND DATA --------------------------------------------------------------
+    
+    
+    //send 1
+    document.getElementById('writeButton').addEventListener('mousedown', async () => {
+        if (characteristic) {
+          try {
+            // Write '1' when the button is pressed
+            await characteristic.writeValue(new Uint8Array([1]));
+            console.log("Sending 1 to MCB");
+    
+          } catch (error) {
+            console.error('Error writing value:', error);
+          }
+        }
+        
+    
+      });
+    
+      //send 0
+      document.getElementById('writeButton').addEventListener('mouseup', async () => {
+        if (characteristic) {
+          try {
+            // Write '0' when the button is released after a delay
+            sleep(350);
+            await characteristic.writeValue(new Uint8Array([0]));
+            console.log("Sending 0 to MCB");
+    
+          } catch (error) {
+            console.error('Error writing value:', error);
+          }
+        }
+          });
+    //break//----------------------------------------------------------
+    });
+    
+    
+     //-----------UPDATE CONSOLE.LOG() DATA IN TERMINAL VIEWER ------------//
+     function appendToTerminal(data) {
+      var terminal = document.getElementById('terminalOutput');
+      var newParagraph = document.createElement('p');
+      newParagraph.textContent = data;
+      terminal.appendChild(newParagraph);
+    }
+    
+    function clearTerminal() {
+      var terminal = document.getElementById('terminalOutput');
+      terminal.innerHTML = '<p>$ \Command Line Output:</p>';
+    }
+    
+    //copy data logged to the console to the on-screen terminal:
+    (function () {
+      var oldLog = console.log;
+      console.log = function (message) {
+        appendToTerminal(message);
+        oldLog.apply(console, arguments);
+        scrollToBottom();
+      };
+    })();
+    
+    function scrollToBottom() {
+      var terminal = document.getElementById('terminalOutput');
+      terminal.scrollTop = terminal.scrollHeight;
+    }
+
+  </script>
+
+<!--END JS SCRIPT-->  
+
+  </body>
+</html>
